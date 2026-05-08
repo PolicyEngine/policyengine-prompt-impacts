@@ -1,0 +1,31 @@
+name: Integration
+
+# Integration tests run an actual PolicyEngine microsimulation. They are
+# slow (~5–10 min) and need a HuggingFace token for the UK private dataset,
+# so they are opt-in: trigger via a manual dispatch or weekly schedule.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1" # 06:00 UTC every Monday
+
+jobs:
+  integration:
+    name: PolicyEngine integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+      - name: Install package with country extras
+        run: |
+          uv venv -p 3.13
+          uv pip install -e ".[dev,uk,us]"
+      - name: Run integration tests
+        env:
+          HF_TOKEN: ${{ secrets.POLICYENGINE_HF_TOKEN }}
+          POLICYENGINE_UK_DEFAULT_DATASET: hf://policyengine/policyengine-uk-data-private/enhanced_frs_2023_24.h5
+        run: uv run pytest -v -m integration
