@@ -29,15 +29,22 @@ def emit_json(results: Iterable[ImpactResult]) -> str:
     )
 
 
+# Floor below which a share is treated as simulation noise rather than a
+# real distributional finding. Set just under the smallest "real" share we
+# want to surface (the no-tax-on-tips prompt is ~0.4% of households).
+NOISE_FLOOR = 0.002
+
+
 def _format_pct(value: float) -> str:
     """Format a percentage for the homepage TS file.
 
-    Sub-1% values keep three decimal places (the no-tax-on-tips deduction
-    benefits ~0.4% of households — rounding that to 0% would erase the
-    finding). Larger values use two decimals to match the existing
-    file's convention.
+    Sub-2% values keep three decimal places — the no-tax-on-tips deduction
+    benefits ~0.4% of households and rounding that to 0% would erase the
+    finding. Anything below ``NOISE_FLOOR`` rounds to 0 to avoid
+    surfacing simulation noise (e.g. trace state-tax interactions in a
+    federal-only reform).
     """
-    if value == 0:
+    if value < NOISE_FLOOR:
         return "0"
     rounded = round(value, 3 if value < 0.01 else 2)
     # Drop trailing zeros and the trailing dot

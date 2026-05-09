@@ -51,7 +51,7 @@ REFORMS: list[Reform] = [
     ),
     Reform(
         key="us_remove_salt_cap",
-        text="the impact of removing the SALT cap on high earners",
+        text="the distributional impact of removing the SALT cap",
         reform={
             "gov.irs.deductions.itemized.salt_and_real_estate.cap.SINGLE": {
                 PERIOD: float("inf")
@@ -78,17 +78,22 @@ REFORMS: list[Reform] = [
     Reform(
         key="us_double_snap",
         text="the poverty impact of doubling SNAP benefits",
+        # Baseline values are the 2026 PolicyEngine SNAP CONTIGUOUS_US max
+        # allotments per household size. SNAP is uprated annually each
+        # October so these will drift; verify against
+        # `gov.usda.snap.max_allotment.main.CONTIGUOUS_US.{N}` after a
+        # PolicyEngine version bump.
         reform={
             f"gov.usda.snap.max_allotment.main.CONTIGUOUS_US.{i}": {PERIOD: v * 2}
             for i, v in [
-                (1, 305),
-                (2, 559),
-                (3, 800),
-                (4, 1015),
-                (5, 1206),
-                (6, 1448),
-                (7, 1601),
-                (8, 1830),
+                (1, 298),
+                (2, 546),
+                (3, 785),
+                (4, 994),
+                (5, 1183),
+                (6, 1421),
+                (7, 1571),
+                (8, 1789),
             ]
         },
     ),
@@ -116,12 +121,9 @@ REFORMS: list[Reform] = [
     Reform(
         key="us_top_rate_45",
         text="how raising the top rate to 45% affects revenue",
-        # PE-US bracket 7 is the 37% bracket (with threshold "inf" — the next
-        # rung). Bracket 6 is the operational top in many cases, so bump both.
-        reform={
-            "gov.irs.income.bracket.rates.6": {PERIOD: 0.43},
-            "gov.irs.income.bracket.rates.7": {PERIOD: 0.45},
-        },
+        # PE-US bracket 7 (37%) is the operational top bracket — its threshold
+        # of "inf" is the upper bound, not a sentinel for inactive.
+        reform={"gov.irs.income.bracket.rates.7": {PERIOD: 0.45}},
     ),
     Reform(
         key="us_double_cdcc",

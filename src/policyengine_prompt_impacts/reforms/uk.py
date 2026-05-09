@@ -49,26 +49,29 @@ REFORMS: list[Reform] = [
     Reform(
         key="uk_uc_standard_allowance_cut_10_per_week",
         text="the poverty impact of cutting the UC standard allowance by £10/week",
-        # SA values are monthly; £10/wk == £43.33/mo. Baseline (2026) values
-        # were sourced via parameters.universal_credit.standard_allowance.amount.
+        # SA values are monthly; £10/wk == 10*52/12 ≈ £43.33/mo. Targets are
+        # the 2026 PolicyEngine baselines minus the cut. Verify against
+        # `gov.dwp.universal_credit.standard_allowance.amount.{cat}` after a
+        # PolicyEngine-UK version bump — uprating will shift the baseline
+        # and these absolute targets will silently drift.
         reform={
             "gov.dwp.universal_credit.standard_allowance.amount.SINGLE_OLD": {
-                PERIOD: 370.41
+                PERIOD: 370.41  # baseline 413.74 - 43.33
             },
             "gov.dwp.universal_credit.standard_allowance.amount.SINGLE_YOUNG": {
-                PERIOD: 284.52
+                PERIOD: 284.42  # baseline 327.76 - 43.33
             },
             "gov.dwp.universal_credit.standard_allowance.amount.COUPLE_OLD": {
-                PERIOD: 605.73
+                PERIOD: 606.12  # baseline 649.46 - 43.33
             },
             "gov.dwp.universal_credit.standard_allowance.amount.COUPLE_YOUNG": {
-                PERIOD: 471.61
+                PERIOD: 471.13  # baseline 514.47 - 43.33
             },
         },
     ),
     Reform(
         key="uk_uc_taper_45",
-        text="how reducing the UC taper rate to 45% helps workers",
+        text="how reducing the UC taper rate to 45% affects workers",
         reform={"gov.dwp.universal_credit.means_test.reduction_rate": {PERIOD: 0.45}},
     ),
     Reform(
@@ -90,7 +93,7 @@ REFORMS: list[Reform] = [
     ),
     Reform(
         key="uk_uc_work_allowance_double",
-        text="how doubling the UC work allowance helps workers",
+        text="who gains from doubling the UC work allowance",
         reform={
             "gov.dwp.universal_credit.means_test.work_allowance.with_housing": {
                 PERIOD: 850.0

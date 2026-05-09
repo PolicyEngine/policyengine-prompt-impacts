@@ -80,6 +80,28 @@ def test_emit_tsx_prompt_list_three_decimal_precision_for_micro_shares() -> None
     assert "winnerPct: 0.004" in out
 
 
+def test_emit_tsx_prompt_list_floors_simulation_noise_to_zero() -> None:
+    """Sub-0.2% shares are below the visualization's resolution AND below
+    PolicyEngine's typical sim noise (state-tax interactions, rounding in
+    the survey weights). They should display as 0, not a fake-precision
+    0.001."""
+    results = [
+        # share_lose 0.001 (0.1%) is sim noise from a state-tax interaction
+        make_result(share_gain=0.14, share_lose=0.0011),
+    ]
+    out = emit_tsx_prompt_list(results)
+    assert "winnerPct: 0.14" in out
+    assert "loserPct: 0," in out
+
+
+def test_emit_tsx_prompt_list_keeps_real_signal_above_noise_floor() -> None:
+    """The 0.4% tipped-worker prompt is real signal and must not be
+    floored. The noise floor is set just below this value."""
+    results = [make_result(share_gain=0.004, share_lose=0.0)]
+    out = emit_tsx_prompt_list(results)
+    assert "winnerPct: 0.004" in out
+
+
 def test_emit_tsx_prompt_list_keeps_non_ascii_literals() -> None:
     """£ and other non-ASCII characters must round-trip as themselves; if the
     emitter escapes them to \\uXXXX the prompt still renders, but the diff is
