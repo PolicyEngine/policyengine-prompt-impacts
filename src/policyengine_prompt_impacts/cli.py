@@ -69,15 +69,18 @@ def _print_results(country: str, reforms: Iterable[Reform]) -> list[ImpactResult
         print(f"-- {reform.key}: {reform.text}", flush=True)
         try:
             result = runner.run(reform)
-            print(
-                f"   share_gain={result.share_gain:.3%} "
-                f"share_lose={result.share_lose:.3%} "
-                f"total={result.total_change / 1e9:+.1f}B",
-                flush=True,
-            )
-            out.append(result)
         except Exception as exc:  # noqa: BLE001 — surface anything informative
-            print(f"   ERROR: {type(exc).__name__}: {exc}", flush=True)
+            raise RuntimeError(
+                f"{country.upper()} reform '{reform.key}' failed: "
+                f"{type(exc).__name__}: {exc}"
+            ) from exc
+        print(
+            f"   share_gain={result.share_gain:.3%} "
+            f"share_lose={result.share_lose:.3%} "
+            f"total={result.total_change / 1e9:+.1f}B",
+            flush=True,
+        )
+        out.append(result)
     return out
 
 
@@ -88,8 +91,16 @@ def cmd_run(args: argparse.Namespace) -> int:
     selected = [args.country]
 
     all_results: list[ImpactResult] = []
-    for country in selected:
-        all_results.extend(_print_results(country, countries[country]))
+    try:
+        for country in selected:
+            all_results.extend(_print_results(country, countries[country]))
+    except Exception as exc:  # noqa: BLE001 — CLI must fail before output emission
+        print(
+            f"ERROR: {type(exc).__name__}: {exc}. No output files were written.",
+            file=sys.stderr,
+            flush=True,
+        )
+        return 1
 
     if args.json:
         Path(args.json).write_text(emit_json(all_results))

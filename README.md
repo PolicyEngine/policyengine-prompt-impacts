@@ -64,8 +64,9 @@ fails before population computation.
 
 UK retains the existing private `enhanced_frs_2023_24.h5` source, passed
 explicitly to both simulations. `POLICYENGINE_UK_DEFAULT_DATASET` can select
-a different existing path. That archived source is still mutable and has
-not been certified here; it is outside the Microcosm-US publication gate.
+a different `hf://` URL, optionally pinned with `@revision`; local paths are
+not supported by the pinned UK model. The default archived source remains
+mutable and uncertified here; it is outside the Microcosm-US publication gate.
 
 These changes do not regenerate or relabel existing homepage results.
 The final canonical generator needs the coordinated published model/data
