@@ -2,7 +2,7 @@
 
 Subcommands:
 
-- ``run`` — run every registered reform against the live PolicyEngine
+- ``run`` — run every registered reform against the protected legacy PolicyEngine
   models and emit a JSON results file. Optionally also writes the
   ``UK_PROMPTS`` / ``US_PROMPTS`` array literal for pasting into
   ``TypewriterPrompt.tsx``.
@@ -22,34 +22,42 @@ from policyengine_prompt_impacts.domain import ImpactResult, Reform
 from policyengine_prompt_impacts.emit import emit_json, emit_tsx_prompt_list
 from policyengine_prompt_impacts.reforms import uk, us
 from policyengine_prompt_impacts.runner import ImpactRunner
+from policyengine_prompt_impacts.runtime import check_runtime, validate_runtime
 
 
 def _build_uk_runner() -> ImpactRunner:
+    validate_runtime("uk")
     # Importing inside the function so that `cli list` works without UK
     # installed (and so the test suite can run without policyengine_uk).
     from policyengine_uk import Microsimulation as UKMicrosim
 
-    if "POLICYENGINE_UK_DEFAULT_DATASET" not in os.environ:
-        os.environ["POLICYENGINE_UK_DEFAULT_DATASET"] = (
-            "hf://policyengine/policyengine-uk-data-private/enhanced_frs_2023_24.h5"
-        )
+    dataset = os.environ.get(
+        "POLICYENGINE_UK_DEFAULT_DATASET",
+        "hf://policyengine/policyengine-uk-data-private/enhanced_frs_2023_24.h5",
+    )
 
     def factory(reform=None):
         if reform is None:
-            return UKMicrosim()
-        return UKMicrosim(reform=reform)
+            return UKMicrosim(dataset=dataset)
+        return UKMicrosim(dataset=dataset, reform=reform)
 
     return ImpactRunner(microsim_factory=factory, year=2026)
 
 
 def _build_us_runner() -> ImpactRunner:
+    from policyengine_prompt_impacts.legacy_us import resolve_dataset
+
+    dataset = resolve_dataset()
+
     from policyengine_core.reforms import Reform as USReform
     from policyengine_us import Microsimulation as USMicrosim
 
     def factory(reform=None):
         if reform is None:
-            return USMicrosim()
-        return USMicrosim(reform=USReform.from_dict(reform, "policyengine_us"))
+            return USMicrosim(dataset=dataset)
+        return USMicrosim(
+            dataset=dataset, reform=USReform.from_dict(reform, "policyengine_us")
+        )
 
     return ImpactRunner(microsim_factory=factory, year=2026)
 
@@ -74,8 +82,10 @@ def _print_results(country: str, reforms: Iterable[Reform]) -> list[ImpactResult
 
 
 def cmd_run(args: argparse.Namespace) -> int:
+    if args.country not in ("uk", "us"):
+        raise ValueError("Run requires one country: 'uk' or 'us'.")
     countries = {"uk": uk.REFORMS, "us": us.REFORMS}
-    selected = list(countries) if args.country == "all" else [args.country]
+    selected = [args.country]
 
     all_results: list[ImpactResult] = []
     for country in selected:
@@ -119,6 +129,12 @@ def cmd_list(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_check_runtime(args: argparse.Namespace) -> int:
+    json.dump(check_runtime(args.country), sys.stdout, indent=2)
+    sys.stdout.write("\n")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="policyengine-prompt-impacts",
@@ -128,7 +144,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     run = sub.add_parser("run", help="Run reforms and emit results.")
-    run.add_argument("--country", choices=("uk", "us", "all"), default="all")
+    run.add_argument("--country", choices=("uk", "us"), required=True)
     run.add_argument("--json", help="Path to write JSON results")
     run.add_argument(
         "--tsx",
@@ -142,6 +158,13 @@ def build_parser() -> argparse.ArgumentParser:
     listing = sub.add_parser("list", help="List registered reforms.")
     listing.add_argument("--country", choices=("uk", "us", "all"), default="all")
     listing.set_defaults(func=cmd_list)
+
+    runtime = sub.add_parser(
+        "check-runtime",
+        help="Verify one installed country API without population data.",
+    )
+    runtime.add_argument("--country", choices=("uk", "us"), required=True)
+    runtime.set_defaults(func=cmd_check_runtime)
 
     return parser
 

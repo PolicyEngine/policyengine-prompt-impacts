@@ -11,10 +11,9 @@ Run locally with:
 
 from __future__ import annotations
 
-import os
-
 import pytest
 
+from policyengine_prompt_impacts.cli import _build_uk_runner, _build_us_runner
 from policyengine_prompt_impacts.domain import Reform
 from policyengine_prompt_impacts.runner import ImpactRunner
 
@@ -28,35 +27,17 @@ PERIOD = "2026-01-01.2100-12-31"
 def uk_runner() -> ImpactRunner:
     """Yield a runner backed by PolicyEngine-UK."""
     pytest.importorskip("policyengine_uk")
-    from policyengine_uk import Microsimulation
-
-    if "POLICYENGINE_UK_DEFAULT_DATASET" not in os.environ:
-        os.environ["POLICYENGINE_UK_DEFAULT_DATASET"] = (
-            "hf://policyengine/policyengine-uk-data-private/enhanced_frs_2023_24.h5"
-        )
-
-    def factory(reform=None):
-        return Microsimulation(reform=reform) if reform else Microsimulation()
-
-    return ImpactRunner(microsim_factory=factory, year=2026)
+    return _build_uk_runner()
 
 
 @pytest.fixture(scope="module")
 def us_runner() -> ImpactRunner:
     """Yield a runner backed by PolicyEngine-US."""
     pytest.importorskip("policyengine_us")
-    pytest.importorskip("policyengine_core.reforms")
-    from policyengine_core.reforms import Reform as USReform
-    from policyengine_us import Microsimulation
-
-    def factory(reform=None):
-        if reform is None:
-            return Microsimulation()
-        return Microsimulation(reform=USReform.from_dict(reform, "policyengine_us"))
-
-    return ImpactRunner(microsim_factory=factory, year=2026)
+    return _build_us_runner()
 
 
+@pytest.mark.uk
 def test_uk_basic_rate_increase_creates_losers(uk_runner: ImpactRunner) -> None:
     """Raising the basic rate from 20p to 25p should leave most UK
     households worse off and almost no households better off. Exact
@@ -74,6 +55,7 @@ def test_uk_basic_rate_increase_creates_losers(uk_runner: ImpactRunner) -> None:
     assert result.total_change < 0  # net cost to households (revenue gain)
 
 
+@pytest.mark.us
 def test_us_triple_standard_deduction_creates_winners(us_runner: ImpactRunner) -> None:
     """Tripling the standard deduction is a tax cut; most filers should
     benefit, almost none should lose."""
