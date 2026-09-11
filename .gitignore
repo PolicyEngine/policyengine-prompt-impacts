@@ -15,6 +15,7 @@ coverage.xml
 
 # Virtual environments
 .venv/
+.venv-*/
 venv/
 
 # Editor / OS

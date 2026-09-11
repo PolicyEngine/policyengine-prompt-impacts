@@ -10,9 +10,13 @@ on:
 
 jobs:
   integration:
-    name: PolicyEngine integration tests
+    name: PolicyEngine ${{ matrix.country }} integration tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        country: [uk, us]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -20,12 +24,14 @@ jobs:
           python-version: "3.13"
       - name: Install uv
         uses: astral-sh/setup-uv@v3
-      - name: Install package with country extras
-        run: |
-          uv venv -p 3.13
-          uv pip install -e ".[dev,uk,us]"
+      - name: Install the selected locked country environment
+        run: uv sync --locked --extra dev --extra ${{ matrix.country }}
+      - name: Verify installed dependencies
+        run: uv pip check
+      - name: Verify actual imports without population data
+        run: uv run --no-sync pytest -v -m "native and ${{ matrix.country }}"
       - name: Run integration tests
         env:
           HF_TOKEN: ${{ secrets.POLICYENGINE_HF_TOKEN }}
           POLICYENGINE_UK_DEFAULT_DATASET: hf://policyengine/policyengine-uk-data-private/enhanced_frs_2023_24.h5
-        run: uv run pytest -v -m integration
+        run: uv run --no-sync pytest -v -m "integration and ${{ matrix.country }}"

@@ -19,41 +19,79 @@ The package owns:
 
 ## Usage
 
-`policyengine-uk` and `policyengine-us` pin different `policyengine-core`
-versions and **cannot live in the same virtualenv**. Install one country
-at a time, or use two separate venvs:
+The active generator uses separate locked country environments. US uses its
+certified US 1.764.6/Core 3.26.11/SPM 0.3.1 tuple. UK retains the project's
+original UK 2.88.13/Core 3.26.1 tuple; it cannot initialize with the US Core
+version. Both selections are recorded in `uv.lock`. Their extras are mutually
+exclusive, and each calculation must explicitly select one country.
 
 ```bash
-# UK
-uv venv -p 3.13 .venv-uk
-uv pip install -e ".[dev,uk]" --python .venv-uk/bin/python
-.venv-uk/bin/policyengine-prompt-impacts run --country uk \
+# UK (requires access to the existing private data source)
+UV_PROJECT_ENVIRONMENT=.venv-uk uv sync --locked --extra dev --extra uk
+uv pip check --python .venv-uk/bin/python
+UV_PROJECT_ENVIRONMENT=.venv-uk uv run --no-sync \
+  policyengine-prompt-impacts check-runtime --country uk
+UV_PROJECT_ENVIRONMENT=.venv-uk uv run --no-sync policyengine-prompt-impacts run --country uk \
   --json uk.json --tsx uk.tsx
 
-# US (separate venv)
-uv venv -p 3.13 .venv-us
-uv pip install -e ".[dev,us]" --python .venv-us/bin/python
-.venv-us/bin/policyengine-prompt-impacts run --country us \
+# US
+UV_PROJECT_ENVIRONMENT=.venv-us uv sync --locked --extra dev --extra us
+uv pip check --python .venv-us/bin/python
+UV_PROJECT_ENVIRONMENT=.venv-us uv run --no-sync \
+  policyengine-prompt-impacts check-runtime --country us
+UV_PROJECT_ENVIRONMENT=.venv-us uv run --no-sync policyengine-prompt-impacts run --country us \
   --json us.json --tsx us.tsx
 
-# List registered reforms (no PolicyEngine sim required — works in either venv)
-policyengine-prompt-impacts list
+# List every country's reforms without importing either model.
+uv run policyengine-prompt-impacts list
 ```
+
+`check-runtime` validates the installed tuple and imports the real selected
+country API without downloading or constructing a population. A `run` without
+`--country`, or with `--country all`, is rejected before calculation. To produce
+both countries' outputs, run the two commands above in their own environments.
 
 The `--tsx` output is a `UK_PROMPTS` / `US_PROMPTS` array literal ready to
 paste into `TypewriterPrompt.tsx` on `policyengine-app-v2`.
 
+US runs explicitly download Build P's `populace_us_2024.h5` from HF commit
+`f09f2f3b9fa8409642dc0c7fc9c8f7516ae0e3c5` and verify SHA-256
+`48b9d479fb4fd1c3537f9383ce4697d130b6f618658409d74f6233c43b994c7e` before
+constructing either simulation. Build P certifies US 1.764.6/Core 3.26.11;
+the runtime also checks SPM 0.3.1. It does not follow `main`, `latest.json`,
+or the country model's default dataset. A mismatched environment or artifact
+fails before population computation.
+
+UK retains the existing private `enhanced_frs_2023_24.h5` source, passed
+explicitly to both simulations. `POLICYENGINE_UK_DEFAULT_DATASET` can select
+a different `hf://` URL, optionally pinned with `@revision`; local paths are
+not supported by the pinned UK model. The default archived source remains
+mutable and uncertified here; it is outside the Microcosm-US publication gate.
+
+These changes do not regenerate or relabel existing homepage results.
+The final canonical generator needs the coordinated published model/data
+bundle and returned provenance before new JSON/TSX is generated and the
+homepage is updated.
+
 ## Development
 
 ```bash
-uv pip install -e ".[dev]"      # no PE country deps — unit tests only
-uv run pytest                   # unit tests (no PolicyEngine sim required)
-uv run pytest -m integration    # actual PE simulation; requires PE country deps
-uv run ruff format .
-uv run ruff check .
+uv sync --locked --extra dev      # no country deps — unit tests only
+uv run --no-sync pytest           # unit tests (no PolicyEngine sim required)
+uv run --no-sync ruff format .
+uv run --no-sync ruff check .
+
+# Real country API check, without population work.
+UV_PROJECT_ENVIRONMENT=.venv-us uv run --no-sync pytest -m 'native and us'
+
+# Separately authorized population integration; use the matching environment.
+UV_PROJECT_ENVIRONMENT=.venv-us uv run --no-sync pytest -m 'integration and us'
+UV_PROJECT_ENVIRONMENT=.venv-uk uv run --no-sync pytest -m 'integration and uk'
 ```
 
-CI runs unit tests on every push. The integration job is opt-in (see
+CI runs unit tests plus native API checks in separate country jobs on every push.
+The integration workflow also runs separate country jobs; each installs only
+its own locked extra and selects only that country's tests. It is opt-in (see
 `.github/workflows/integration.yml`) because PolicyEngine simulations take
 several minutes and require HuggingFace dataset access. The integration
 workflow needs a `POLICYENGINE_HF_TOKEN` repo secret with read access to
